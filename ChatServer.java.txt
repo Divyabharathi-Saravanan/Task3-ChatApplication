@@ -1,0 +1,60 @@
+SERVER CODE:
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class ChatServer {
+    private ServerSocket serverSocket;
+    private Map<String, PrintWriter> clients = new HashMap<>();
+
+    public ChatServer(int port) throws IOException {
+        serverSocket = new ServerSocket(port);
+        System.out.println("Server started on port " + port);
+    }
+
+    public void start() {
+        while (true) {
+            try {
+                Socket clientSocket = serverSocket.accept();
+                System.out.println("New client connected");
+                handleClient(clientSocket);
+            } catch (IOException e) {
+                System.out.println("Error accepting client connection");
+            }
+        }
+    }
+
+    private void handleClient(Socket clientSocket) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
+        String username = reader.readLine();
+        clients.put(username, writer);
+
+        Thread clientThread = new Thread(() -> {
+            try {
+                String message;
+                while ((message = reader.readLine()) != null) {
+                    broadcastMessage(username, message);
+                }
+            } catch (IOException e) {
+                System.out.println("Client disconnected");
+            } finally {
+                clients.remove(username);
+            }
+        });
+        clientThread.start();
+    }
+
+    private void broadcastMessage(String username, String message) {
+        for (PrintWriter writer : clients.values()) {
+            writer.println(username + ": " + message);
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        ChatServer server = new ChatServer(8000);
+        server.start();
+    }
+}
+
